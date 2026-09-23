@@ -447,7 +447,8 @@ const char* const algo_alias_map[][2] =
   { "x16r-hex",          "hex"            },
   { "yenten",            "yescryptr16"    },
   { "ziftr",             "zr5"            },
-  { "rinhash",           "rinhash"        } 
+  { "rinhash",           "rinhash"        },
+  { NULL,                NULL             }
 };
 
 // if arg is a valid alias for a known algo it is updated with the proper
