@@ -1,6 +1,6 @@
 #include "argon2d-gate.h"
 #include "simd-utils.h"
-#include "argon2d/argon2.h"
+#include "../rinhash/argon2/include/argon2.h"
 
 static const size_t INPUT_BYTES = 80;  // Lenth of a block header in bytes. Input Length = Salt Length (salt = input)
 static const size_t OUTPUT_BYTES = 32; // Length of output needed for a 256-bit hash
@@ -159,7 +159,7 @@ int scanhash_argon2d4096( struct work *work, uint32_t max_nonce,
    do {
       edata[19] = n;
       argon2d_hash_raw( t_cost, m_cost, parallelism, (char*) edata, 80,
-                 (char*) edata, 80, (char*) vhash, 32, ARGON2_VERSION_13 );
+                 (char*) edata, 80, (char*) vhash, 32 ); // upstream API: always v1.3
       if ( unlikely( valid_hash( vhash, ptarget ) && !bench ) )
       {
          be32enc( &pdata[19], n );

@@ -44,12 +44,6 @@ cpuminer_SOURCES = \
   algo-gate-api.c\
   malloc-huge.c \
   algo/argon2d/argon2d-gate.c \
-  algo/argon2d/blake2/blake2b.c \
-  algo/argon2d/argon2d/argon2.c \
-  algo/argon2d/argon2d/core.c \
-  algo/argon2d/argon2d/opt.c \
-  algo/argon2d/argon2d/argon2d_thread.c \
-  algo/argon2d/argon2d/encoding.c \
   algo/blake/sph_blake.c \
   algo/blake/blake256-hash.c \
   algo/blake/blake512-hash.c \
@@ -293,6 +287,7 @@ cpuminer_SOURCES = \
   algo/yespower/yespower-ref.c \
   algo/yespower/yespower-blake2b-ref.c \
   algo/rinhash/rinhash.c \
+  algo/rinhash/rinhash_fast.c \
   algo/rinhash/blake3/blake3.c \
   algo/rinhash/blake3/blake3_dispatch.c \
   algo/rinhash/blake3/blake3_portable.c \
@@ -302,7 +297,18 @@ cpuminer_SOURCES = \
   algo/rinhash/blake3/blake3_avx512_x86-64_unix.S \
   algo/rinhash/sha3/SimpleFIPS202.c \
   algo/rinhash/sha3/KeccakSponge.c \
-  algo/rinhash/sha3/KeccakP-1600-reference.c 
+  algo/rinhash/sha3/KeccakP-1600-reference.c \
+  algo/rinhash/argon2/core.c \
+  algo/rinhash/argon2/blake2/blake2b.c \
+  algo/rinhash/argon2/encoding.c \
+  algo/rinhash/argon2/argon2.c \
+  algo/rinhash/argon2/ref.c \
+  algo/rinhash/argon2/thread.c \
+  algo/rinhash/argon2/argon2_dispatch.c \
+  algo/rinhash/argon2/argon2_mempool.c \
+  algo/rinhash/argon2/argon2_ssse3.c \
+  algo/rinhash/argon2/argon2_avx2.c \
+  algo/rinhash/argon2/argon2_avx512.c 
 
 
 if HAVE_WINDOWS
@@ -318,12 +324,54 @@ endif
 
 cpuminer_LDFLAGS = @LDFLAGS@
 cpuminer_LDADD	= $(EXTRA_LIBS) @LIBCURL@ -ljansson @PTHREAD_LIBS@ @WS2_LIBS@ -lgmp
-cpuminer_CPPFLAGS = @LIBCURL_CPPFLAGS@ $(ALL_INCLUDES) -DXKCP_has_KeccakP1600
-cpuminer_CFLAGS = -Wno-pointer-sign -Wno-pointer-to-int-cast -DBLAKE3_NO_SSE2 -DBLAKE3_NO_SSE41  $(disable_flags)
+cpuminer_CPPFLAGS = @LIBCURL_CPPFLAGS@ $(ALL_INCLUDES) -DXKCP_has_KeccakP1600 -I$(top_srcdir)/algo/rinhash/argon2/include -I$(top_srcdir)/algo/rinhash/argon2/blake2
+cpuminer_CFLAGS = -O3 -Wno-pointer-sign -Wno-pointer-to-int-cast -DBLAKE3_NO_SSE2 -DBLAKE3_NO_SSE41  $(disable_flags)
 
 if ARCH_ARM64
    cpuminer_CFLAGS += -flax-vector-conversions
 endif
+
+# libnuma is only used on Linux (rinhash_fast.c guards it with __linux__)
+if !HAVE_WINDOWS
+   cpuminer_LDADD += -lnuma
+endif
+
+# Argon2 core files - now works with -O3 after fixing SIMD implementations
+argon2_ccflags = $(DEFS) $(ALL_INCLUDES) $(cpuminer_CPPFLAGS) $(CPPFLAGS) $(cpuminer_CFLAGS) -O3 -fPIC -funroll-loops
+
+algo/rinhash/argon2/cpuminer-core.o: algo/rinhash/argon2/core.c
+	$(CC) $(argon2_ccflags) -MT $@ -MD -MP -c -o $@ $<
+
+algo/rinhash/argon2/blake2/cpuminer-blake2b.o: algo/rinhash/argon2/blake2/blake2b.c
+	$(CC) $(argon2_ccflags) -MT $@ -MD -MP -c -o $@ $<
+
+algo/rinhash/argon2/cpuminer-encoding.o: algo/rinhash/argon2/encoding.c
+	$(CC) $(argon2_ccflags) -MT $@ -MD -MP -c -o $@ $<
+
+algo/rinhash/argon2/cpuminer-argon2.o: algo/rinhash/argon2/argon2.c
+	$(CC) $(argon2_ccflags) -MT $@ -MD -MP -c -o $@ $<
+
+algo/rinhash/argon2/cpuminer-ref.o: algo/rinhash/argon2/ref.c
+	$(CC) $(argon2_ccflags) -MT $@ -MD -MP -c -o $@ $<
+
+algo/rinhash/argon2/cpuminer-thread.o: algo/rinhash/argon2/thread.c
+	$(CC) $(argon2_ccflags) -MT $@ -MD -MP -c -o $@ $<
+
+algo/rinhash/argon2/cpuminer-argon2_dispatch.o: algo/rinhash/argon2/argon2_dispatch.c
+	$(CC) $(argon2_ccflags) -MT $@ -MD -MP -c -o $@ $<
+
+algo/rinhash/argon2/cpuminer-argon2_mempool.o: algo/rinhash/argon2/argon2_mempool.c
+	$(CC) $(argon2_ccflags) -MT $@ -MD -MP -c -o $@ $<
+
+# Argon2 SIMD variants - fixed to work correctly with -O3
+algo/rinhash/argon2/cpuminer-argon2_ssse3.o: algo/rinhash/argon2/argon2_ssse3.c
+	$(CC) $(argon2_ccflags) -mssse3 -DENABLE_SSSE3 -MT $@ -MD -MP -c -o $@ $<
+
+algo/rinhash/argon2/cpuminer-argon2_avx2.o: algo/rinhash/argon2/argon2_avx2.c
+	$(CC) $(argon2_ccflags) -mavx2 -DENABLE_AVX2 -MT $@ -MD -MP -c -o $@ $<
+
+algo/rinhash/argon2/cpuminer-argon2_avx512.o: algo/rinhash/argon2/argon2_avx512.c
+	$(CC) $(argon2_ccflags) -mavx512f -mavx512dq -DENABLE_AVX512 -MT $@ -MD -MP -c -o $@ $<
 
 if HAVE_WINDOWS
 

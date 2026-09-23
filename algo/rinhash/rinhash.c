@@ -8,7 +8,9 @@
 #include "blake3/blake3.h"
 #include "blake3/blake3_impl.h"
 #include "sha3/SimpleFIPS202.h"
-#include "../argon2d/argon2d/argon2.h"  // Update path to argon2d header
+#include "argon2/include/argon2.h"
+#include "argon2/argon2_dispatch.h"
+#include "argon2/argon2_mempool.h"
 
 typedef struct {
     blake3_hasher blake;
@@ -65,8 +67,8 @@ void rinhash(void* state, const void* input)
     context.lanes = 1;
     context.threads = 1;
     context.version = ARGON2_VERSION_13;
-    context.allocate_cbk = NULL;
-    context.free_cbk = NULL;
+    context.allocate_cbk = argon2_mempool_allocate;
+    context.free_cbk = argon2_mempool_free;
     context.flags = ARGON2_DEFAULT_FLAGS;
 
     if (argon2d_ctx(&context) != ARGON2_OK) {
@@ -117,10 +119,20 @@ int scanhash_rinhash(struct work *work, uint32_t max_nonce,
     return 0;
 }
 
+// Initialize per-thread resources
+bool rinhash_thread_init( int thr_id )
+{
+    // Initialize argon2 dispatch system
+    argon2_dispatch_init();
+    // Initialize memory pool for this thread
+    argon2_mempool_init();
+    return true;
+}
 
 // Register algorithm
 bool register_rin_algo( algo_gate_t* gate )
 {
+    gate->miner_thread_init = (void*)&rinhash_thread_init;
     gate->scanhash = (void*)&scanhash_rinhash;
     gate->hash = (void*)&rinhash;
     gate->optimizations = SSE2_OPT | AVX2_OPT | AVX512_OPT;

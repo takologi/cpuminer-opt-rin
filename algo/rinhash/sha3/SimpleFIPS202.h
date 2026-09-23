@@ -17,7 +17,7 @@ http://creativecommons.org/publicdomain/zero/1.0/
 #ifndef _SimpleFIPS202_h_
 #define _SimpleFIPS202_h_
 
-#include "config.h"
+//#include "config.h"
 #ifdef XKCP_has_KeccakP1600
 
 #include <string.h>

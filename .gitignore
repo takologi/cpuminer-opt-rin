@@ -50,3 +50,13 @@ sign.sh
 compat/curl-for-windows/
 
 .vscode/
+
+*~
+*.a
+
+# local build/packaging leftovers
+/gmp.h
+/release/
+/test/*
+!/test/*.c
+.dirstamp
